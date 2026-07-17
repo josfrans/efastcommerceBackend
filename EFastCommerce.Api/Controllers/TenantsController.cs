@@ -1,0 +1,84 @@
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using EFastCommerce.Core.Entities;
+using EFastCommerce.Core.Interfaces.Services;
+
+namespace EFastCommerce.Api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class TenantsController : ControllerBase
+    {
+        private readonly ITenantService _tenantService;
+
+        public TenantsController(ITenantService tenantService)
+        {
+            _tenantService = tenantService;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Tenant>>> GetAll()
+        {
+            var tenants = await _tenantService.GetAllTenantsAsync();
+            return Ok(tenants);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Tenant>> GetById(Guid id)
+        {
+            var tenant = await _tenantService.GetTenantByIdAsync(id);
+            if (tenant == null)
+            {
+                return NotFound();
+            }
+            return Ok(tenant);
+        }
+
+        [HttpGet("slug/{slug}")]
+        public async Task<ActionResult<Tenant>> GetBySlug(string slug)
+        {
+            var tenant = await _tenantService.GetTenantBySlugAsync(slug);
+            if (tenant == null)
+            {
+                return NotFound();
+            }
+            return Ok(tenant);
+        }
+
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Update(Guid id, [FromBody] Tenant tenantUpdate)
+        {
+            // Security: Ensure the user is actually the Owner (or has access to this tenant)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return StatusCode(403, new { Error = "You can only modify your own store details." });
+            }
+
+            var existingTenant = await _tenantService.GetTenantByIdAsync(id);
+            if (existingTenant == null)
+            {
+                return NotFound();
+            }
+
+            // Check if the user is the Owner
+            if (existingTenant.OwnerId != userId)
+            {
+                return StatusCode(403, new { Error = "You can only modify your own store details." });
+            }
+
+            existingTenant.Name = tenantUpdate.Name;
+            existingTenant.LogoUrl = tenantUpdate.LogoUrl;
+            existingTenant.ThemeColor = tenantUpdate.ThemeColor;
+
+            await _tenantService.UpdateTenantAsync(existingTenant);
+
+            return NoContent();
+        }
+    }
+}

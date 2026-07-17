@@ -1,0 +1,59 @@
+## Ignore Visual Studio temporary files, build results, and user-specific settings
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio 2015/2017/2019/2022 cache templates
+.vs/
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Mono Class Library
+*.mo
+
+# Rider
+.idea/
+
+# Environment configurations containing secrets
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.mdf
+*.ldf
+*.ndf
+
+# NuGet Packages
+*.nupkg
+# The packages folder can be ignored because of Package Restore
+**/packages/*
+# except build/, which is used as an MSBuild target.
+!**/packages/build/
+# Uncomment if using NuGet Localization
+# !**/packages/locale/
+
+# Publish output
+publish/
+sxs/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

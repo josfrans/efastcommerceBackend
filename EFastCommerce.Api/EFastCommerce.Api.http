@@ -1,0 +1,6 @@
+@EFastCommerce.Api_HostAddress = http://localhost:5132
+
+GET {{EFastCommerce.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

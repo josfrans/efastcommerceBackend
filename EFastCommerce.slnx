@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="EFastCommerce.Api/EFastCommerce.Api.csproj" />
+  <Project Path="EFastCommerce.Core/EFastCommerce.Core.csproj" />
+  <Project Path="EFastCommerce.Infrastructure/EFastCommerce.Infrastructure.csproj" />
+  <Project Path="EFastCommerce.Services/EFastCommerce.Services.csproj" />
+</Solution>
