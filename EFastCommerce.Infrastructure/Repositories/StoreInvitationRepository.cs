@@ -27,6 +27,7 @@ namespace EFastCommerce.Infrastructure.Repositories
         public async Task<IEnumerable<StoreInvitation>> GetInvitationsByTenantAsync(Guid tenantId)
         {
             return await _dbSet.Where(i => i.TenantId == tenantId)
+                               .Include(i => i.ReferrerUser)
                                .OrderByDescending(i => i.CreatedAt)
                                .ToListAsync();
         }

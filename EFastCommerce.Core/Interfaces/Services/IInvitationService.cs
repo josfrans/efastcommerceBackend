@@ -7,7 +7,7 @@ namespace EFastCommerce.Core.Interfaces.Services
 {
     public interface IInvitationService
     {
-        Task<StoreInvitation> GenerateInvitationAsync(Guid tenantId, int expiresHours);
+        Task<StoreInvitation> GenerateInvitationAsync(Guid tenantId, Guid? referrerUserId, int expiresHours);
         Task<IEnumerable<StoreInvitation>> GetInvitationsByTenantAsync(Guid tenantId);
         Task<bool> DeleteInvitationAsync(Guid id, Guid tenantId);
         Task<StoreInvitation?> ValidateTokenAsync(string token);

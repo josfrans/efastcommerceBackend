@@ -26,6 +26,11 @@ namespace EFastCommerce.Services
             return await _tenantRepository.GetBySlugAsync(slug);
         }
 
+        public async Task<Tenant?> GetTenantByNameAsync(string name)
+        {
+            return await _tenantRepository.GetByNameAsync(name);
+        }
+
         public async Task<IEnumerable<Tenant>> GetAllTenantsAsync()
         {
             return await _tenantRepository.GetAllAsync();

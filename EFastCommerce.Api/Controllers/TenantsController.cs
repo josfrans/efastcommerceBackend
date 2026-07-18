@@ -49,6 +49,32 @@ namespace EFastCommerce.Api.Controllers
             return Ok(tenant);
         }
 
+        [HttpGet("check-availability")]
+        public async Task<ActionResult> CheckAvailability([FromQuery] string type, [FromQuery] string value)
+        {
+            if (string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(value))
+            {
+                return BadRequest(new { Error = "Type and value are required." });
+            }
+
+            Tenant? existingTenant = null;
+
+            if (type.ToLower() == "slug")
+            {
+                existingTenant = await _tenantService.GetTenantBySlugAsync(value);
+            }
+            else if (type.ToLower() == "name")
+            {
+                existingTenant = await _tenantService.GetTenantByNameAsync(value);
+            }
+            else
+            {
+                return BadRequest(new { Error = "Invalid type. Must be 'slug' or 'name'." });
+            }
+
+            return Ok(new { available = existingTenant == null });
+        }
+
         [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> Update(Guid id, [FromBody] Tenant tenantUpdate)

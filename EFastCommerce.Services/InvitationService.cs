@@ -21,7 +21,7 @@ namespace EFastCommerce.Services
             _subscriptionRepository = subscriptionRepository;
         }
 
-        public async Task<StoreInvitation> GenerateInvitationAsync(Guid tenantId, int expiresHours)
+        public async Task<StoreInvitation> GenerateInvitationAsync(Guid tenantId, Guid? referrerUserId, int expiresHours)
         {
             var randomBytes = new byte[16];
             RandomNumberGenerator.Fill(randomBytes);
@@ -32,6 +32,7 @@ namespace EFastCommerce.Services
             {
                 Id = Guid.NewGuid(),
                 TenantId = tenantId,
+                ReferrerUserId = referrerUserId,
                 Token = token,
                 ExpiresAt = DateTime.UtcNow.AddHours(expiresHours),
                 CreatedAt = DateTime.UtcNow
@@ -108,6 +109,11 @@ namespace EFastCommerce.Services
                 {
                     existingSub.Status = "Active";
                     existingSub.SubscribedAt = DateTime.UtcNow;
+                    // Solo actualizamos ReferredByUserId si estaba nulo, para respetar el referente original
+                    if (existingSub.ReferredByUserId == null && invitation.ReferrerUserId != null)
+                    {
+                        existingSub.ReferredByUserId = invitation.ReferrerUserId;
+                    }
                     await _subscriptionRepository.UpdateAsync(existingSub);
                 }
                 return existingSub; // Already subscribed, return existing
@@ -118,6 +124,7 @@ namespace EFastCommerce.Services
                 Id = Guid.NewGuid(),
                 TenantId = invitation.TenantId,
                 UserId = userId,
+                ReferredByUserId = invitation.ReferrerUserId,
                 SubscribedAt = DateTime.UtcNow,
                 Status = "Active"
             };

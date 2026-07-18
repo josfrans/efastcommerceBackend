@@ -83,18 +83,16 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IStoreInvitationRepository, StoreInvitationRepository>();
-builder.Services.AddScoped<IStoreSubscriptionRepository, StoreSubscriptionRepository>();
-builder.Services.AddScoped<ITenantVendorRepository, TenantVendorRepository>();
-builder.Services.AddScoped<IStoreReferralLinkRepository, StoreReferralLinkRepository>();
+        builder.Services.AddScoped<IStoreSubscriptionRepository, StoreSubscriptionRepository>();
+        builder.Services.AddScoped<ITenantVendorRepository, TenantVendorRepository>();
 
 // Add Services
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<IInvitationService, InvitationService>();
-builder.Services.AddScoped<IVendorService, VendorService>();
-builder.Services.AddScoped<IReferralService, ReferralService>();
+        builder.Services.AddScoped<IInvitationService, InvitationService>();
+        builder.Services.AddScoped<IVendorService, VendorService>();
 
 // Configure Controllers
 builder.Services.AddControllers()

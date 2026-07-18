@@ -19,12 +19,14 @@ namespace EFastCommerce.Api.Controllers
         private readonly IUserService _userService;
         private readonly ITenantService _tenantService;
         private readonly IConfiguration _configuration;
+        private readonly IInvitationService _invitationService;
 
-        public AuthController(IUserService userService, ITenantService tenantService, IConfiguration configuration)
+        public AuthController(IUserService userService, ITenantService tenantService, IConfiguration configuration, IInvitationService invitationService)
         {
             _userService = userService;
             _tenantService = tenantService;
             _configuration = configuration;
+            _invitationService = invitationService;
         }
 
         [HttpPost("register")]
@@ -65,11 +67,21 @@ namespace EFastCommerce.Api.Controllers
 
                     await _tenantService.CreateTenantAsync(newTenant);
                 }
-                else if (request.Role == UserRoles.Client && request.TenantId.HasValue)
+                else if (request.Role == UserRoles.Client)
                 {
-                    // A client might register via an invitation token or direct link,
-                    // but the StoreSubscription is typically handled in a separate service.
-                    // For now, no strict action is required here since subscriptions manage Client tenant links.
+                    if (string.IsNullOrWhiteSpace(request.InvitationToken))
+                    {
+                        // Clean up the created user if token is missing
+                        // Assuming simple delete for now, but a real app might use transactions
+                        return BadRequest(new { Error = "Se requiere un código de invitación para registrarse como cliente." });
+                    }
+
+                    var validToken = await _invitationService.ValidateTokenAsync(request.InvitationToken);
+                    if (validToken == null)
+                    {
+                        return BadRequest(new { Error = "El código de invitación no es válido o ha expirado." });
+                    }
+                    await _invitationService.SubscribeUserAsync(registeredUser.Id, request.InvitationToken);
                 }
 
                 return Ok(new { Message = "User registered successfully", UserId = registeredUser.Id });
@@ -98,12 +110,19 @@ namespace EFastCommerce.Api.Controllers
             var token = GenerateJwtToken(user);
 
             // Fetch AccessibleTenants for ALL associations
-            var accessibleTenantsDict = new System.Collections.Generic.Dictionary<Guid, object>();
+            var accessibleTenantsDict = new System.Collections.Generic.Dictionary<Guid, AccessibleTenantDto>();
             
             // 1. Owners
             foreach (var tenant in user.OwnedTenants)
             {
-                accessibleTenantsDict[tenant.Id] = new { tenant.Id, tenant.Name, tenant.Slug, Role = "Owner", IsActive = tenant.IsActive };
+                accessibleTenantsDict[tenant.Id] = new AccessibleTenantDto
+                {
+                    Id = tenant.Id,
+                    Name = tenant.Name,
+                    Slug = tenant.Slug,
+                    Roles = new System.Collections.Generic.List<string> { "Owner" },
+                    IsActive = tenant.IsActive
+                };
             }
             
             // 2. Vendors
@@ -111,10 +130,20 @@ namespace EFastCommerce.Api.Controllers
             {
                 if (tv.Status == "Approved" && tv.Tenant != null)
                 {
-                    // Avoid duplicate if they are owner AND vendor
-                    if (!accessibleTenantsDict.ContainsKey(tv.Tenant.Id))
+                    if (accessibleTenantsDict.TryGetValue(tv.Tenant.Id, out var existing))
                     {
-                        accessibleTenantsDict[tv.Tenant.Id] = new { tv.Tenant.Id, tv.Tenant.Name, tv.Tenant.Slug, Role = "Vendor", IsActive = tv.Tenant.IsActive };
+                        if (!existing.Roles.Contains("Vendor")) existing.Roles.Add("Vendor");
+                    }
+                    else
+                    {
+                        accessibleTenantsDict[tv.Tenant.Id] = new AccessibleTenantDto
+                        {
+                            Id = tv.Tenant.Id,
+                            Name = tv.Tenant.Name,
+                            Slug = tv.Tenant.Slug,
+                            Roles = new System.Collections.Generic.List<string> { "Vendor" },
+                            IsActive = tv.Tenant.IsActive
+                        };
                     }
                 }
             }
@@ -124,15 +153,32 @@ namespace EFastCommerce.Api.Controllers
             {
                 if (sub.Status == "Active" && sub.Tenant != null)
                 {
-                    // Add as client if not already Owner or Vendor
-                    if (!accessibleTenantsDict.ContainsKey(sub.Tenant.Id))
+                    if (accessibleTenantsDict.TryGetValue(sub.Tenant.Id, out var existing))
                     {
-                        accessibleTenantsDict[sub.Tenant.Id] = new { sub.Tenant.Id, sub.Tenant.Name, sub.Tenant.Slug, Role = "Client", IsActive = sub.Tenant.IsActive };
+                        if (!existing.Roles.Contains("Client")) existing.Roles.Add("Client");
+                    }
+                    else
+                    {
+                        accessibleTenantsDict[sub.Tenant.Id] = new AccessibleTenantDto
+                        {
+                            Id = sub.Tenant.Id,
+                            Name = sub.Tenant.Name,
+                            Slug = sub.Tenant.Slug,
+                            Roles = new System.Collections.Generic.List<string> { "Client" },
+                            IsActive = sub.Tenant.IsActive
+                        };
                     }
                 }
             }
 
-            var accessibleTenants = accessibleTenantsDict.Values.ToList();
+            var accessibleTenants = accessibleTenantsDict.Values.Select(t => new
+            {
+                t.Id,
+                t.Name,
+                t.Slug,
+                Roles = t.Roles.ToArray(),
+                t.IsActive
+            }).ToList();
 
             return Ok(new
             {
@@ -200,11 +246,21 @@ namespace EFastCommerce.Api.Controllers
 
         // Client specific (optional context)
         public Guid? TenantId { get; set; }
+        public string? InvitationToken { get; set; }
     }
 
     public class LoginRequest
     {
         public string UsernameOrEmail { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    public class AccessibleTenantDto
+    {
+        public Guid Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public System.Collections.Generic.List<string> Roles { get; set; } = new System.Collections.Generic.List<string>();
+        public bool IsActive { get; set; }
     }
 }

@@ -16,5 +16,10 @@ namespace EFastCommerce.Infrastructure.Repositories
         {
             return await _dbSet.FirstOrDefaultAsync(t => t.Slug.ToLower() == slug.ToLower());
         }
+
+        public async Task<Tenant?> GetByNameAsync(string name)
+        {
+            return await _dbSet.FirstOrDefaultAsync(t => t.Name.ToLower() == name.ToLower());
+        }
     }
 }

@@ -9,6 +9,7 @@ namespace EFastCommerce.Core.Interfaces.Services
     {
         Task<Tenant?> GetTenantByIdAsync(Guid id);
         Task<Tenant?> GetTenantBySlugAsync(string slug);
+        Task<Tenant?> GetTenantByNameAsync(string name);
         Task<IEnumerable<Tenant>> GetAllTenantsAsync();
         Task<Tenant> CreateTenantAsync(Tenant tenant);
         Task UpdateTenantAsync(Tenant tenant);

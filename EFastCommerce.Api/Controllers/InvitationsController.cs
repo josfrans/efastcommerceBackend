@@ -87,7 +87,7 @@ namespace EFastCommerce.Api.Controllers
                 }
 
                 int hours = request.ExpiresHours > 0 ? request.ExpiresHours : 168; // Default 7 days (168 hours)
-                var invitation = await _invitationService.GenerateInvitationAsync(tenantId, hours);
+                var invitation = await _invitationService.GenerateInvitationAsync(tenantId, userId, hours);
 
                 // Build invitation link URL using configured FrontendUrl
                 string frontendUrl = _configuration["FrontendUrl"]?.TrimEnd('/') ?? "http://localhost:8100";
@@ -132,7 +132,21 @@ namespace EFastCommerce.Api.Controllers
             }
 
             var invitations = await _invitationService.GetInvitationsByTenantAsync(tenantId);
-            return Ok(invitations);
+            var response = new List<object>();
+            foreach (var inv in invitations)
+            {
+                response.Add(new
+                {
+                    inv.Id,
+                    inv.TenantId,
+                    inv.Token,
+                    inv.ExpiresAt,
+                    inv.CreatedAt,
+                    ReferrerUserId = inv.ReferrerUserId,
+                    ReferrerUsername = inv.ReferrerUser?.Username
+                });
+            }
+            return Ok(response);
         }
 
         [HttpDelete("links/{id}")]

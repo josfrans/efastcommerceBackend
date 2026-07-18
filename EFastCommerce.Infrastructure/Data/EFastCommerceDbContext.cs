@@ -21,7 +21,6 @@ namespace EFastCommerce.Infrastructure.Data
         public DbSet<OrderItem> OrderItems => Set<OrderItem>();
         public DbSet<StoreInvitation> StoreInvitations => Set<StoreInvitation>();
         public DbSet<StoreSubscription> StoreSubscriptions => Set<StoreSubscription>();
-        public DbSet<StoreReferralLink> StoreReferralLinks => Set<StoreReferralLink>();
         public DbSet<TenantVendor> TenantVendors => Set<TenantVendor>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -123,6 +122,11 @@ namespace EFastCommerce.Infrastructure.Data
                       .WithMany()
                       .HasForeignKey(e => e.TenantId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ReferrerUser)
+                      .WithMany()
+                      .HasForeignKey(e => e.ReferrerUserId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configure StoreSubscription
@@ -148,24 +152,7 @@ namespace EFastCommerce.Infrastructure.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Configure StoreReferralLink
-            modelBuilder.Entity<StoreReferralLink>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.HasQueryFilter(r => _tenantProvider.TenantId == null || r.TenantId == _tenantProvider.TenantId);
-                entity.Property(e => e.Token).IsRequired().HasMaxLength(100);
-                entity.HasIndex(e => e.Token).IsUnique();
 
-                entity.HasOne(e => e.Tenant)
-                      .WithMany()
-                      .HasForeignKey(e => e.TenantId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(e => e.ReferrerUser)
-                      .WithMany()
-                      .HasForeignKey(e => e.ReferrerUserId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
 
             // Configure TenantVendor
             modelBuilder.Entity<TenantVendor>(entity =>
