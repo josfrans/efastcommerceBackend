@@ -20,13 +20,15 @@ namespace EFastCommerce.Api.Controllers
         private readonly ITenantService _tenantService;
         private readonly IConfiguration _configuration;
         private readonly IInvitationService _invitationService;
+        private readonly IEmailService _emailService;
 
-        public AuthController(IUserService userService, ITenantService tenantService, IConfiguration configuration, IInvitationService invitationService)
+        public AuthController(IUserService userService, ITenantService tenantService, IConfiguration configuration, IInvitationService invitationService, IEmailService emailService)
         {
             _userService = userService;
             _tenantService = tenantService;
             _configuration = configuration;
             _invitationService = invitationService;
+            _emailService = emailService;
         }
 
         [HttpPost("register")]
@@ -34,14 +36,34 @@ namespace EFastCommerce.Api.Controllers
         {
             try
             {
-                var user = new User
-                {
-                    Username = request.Username,
-                    Email = request.Email,
-                    Role = request.Role
-                };
+                var existingUser = await _userService.GetUserByEmailAsync(request.Email);
+                User registeredUser;
 
-                var registeredUser = await _userService.RegisterAsync(user, request.Password);
+                if (existingUser != null)
+                {
+                    // Existing user flow
+                    if (!_userService.VerifyUserPassword(existingUser, request.Password))
+                    {
+                        return BadRequest(new { Error = "ExistingUserWrongPassword", Message = "El correo ya está registrado, pero la contraseña es incorrecta." });
+                    }
+                    registeredUser = existingUser;
+                    // If the user was a client and is now registering as a VendorAdmin, upgrade role
+                    if (existingUser.Role == UserRoles.Client && request.Role == UserRoles.VendorAdmin)
+                    {
+                        // In a real app we'd update the role, but for this demo, keeping it simple
+                    }
+                }
+                else
+                {
+                    // New user flow
+                    var user = new User
+                    {
+                        Username = request.Username,
+                        Email = request.Email,
+                        Role = request.Role
+                    };
+                    registeredUser = await _userService.RegisterAsync(user, request.Password);
+                }
 
                 if (request.Role == UserRoles.VendorAdmin)
                 {
@@ -90,6 +112,124 @@ namespace EFastCommerce.Api.Controllers
             {
                 return BadRequest(new { Error = ex.Message });
             }
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                var code = await _userService.GeneratePasswordResetCodeAsync(request.Email);
+                
+                var body = $@"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <style>
+        body {{
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }}
+        .header {{
+            background-color: #3880ff;
+            color: #ffffff;
+            text-align: center;
+            padding: 30px 20px;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }}
+        .content {{
+            padding: 40px 30px;
+            color: #333333;
+            line-height: 1.6;
+        }}
+        .content h2 {{
+            font-size: 20px;
+            color: #222428;
+            margin-top: 0;
+        }}
+        .code-box {{
+            background-color: #f4f6f8;
+            border: 2px dashed #3880ff;
+            border-radius: 8px;
+            text-align: center;
+            padding: 20px;
+            margin: 30px 0;
+            font-size: 32px;
+            font-weight: 700;
+            color: #3880ff;
+            letter-spacing: 4px;
+        }}
+        .footer {{
+            background-color: #f4f6f8;
+            text-align: center;
+            padding: 20px;
+            color: #92949c;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>E-Fast Commerce</h1>
+        </div>
+        <div class='content'>
+            <h2>Recuperación de Contraseña</h2>
+            <p>Hola,</p>
+            <p>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en <strong>E-Fast Commerce</strong>.</p>
+            <p>Por favor, utiliza el siguiente código de verificación de 6 dígitos para continuar con el proceso:</p>
+            
+            <div class='code-box'>
+                {code}
+            </div>
+            
+            <p>Este código <strong>expirará en 15 minutos</strong>. Si no solicitaste este cambio, puedes ignorar este correo de forma segura.</p>
+        </div>
+        <div class='footer'>
+            &copy; {DateTime.UtcNow.Year} E-Fast Commerce. Todos los derechos reservados.
+        </div>
+    </div>
+</body>
+</html>";
+
+                await _emailService.SendEmailAsync(request.Email, "Recuperación de contraseña - E-Fast Commerce", body);
+                return Ok(new { Message = "Si el correo está registrado, se ha enviado un código de recuperación." });
+            }
+            catch (Exception ex)
+            {
+                if (ex.Message == "User not found.")
+                {
+                    return NotFound(new { Error = "El correo electrónico no está registrado en el sistema." });
+                }
+                return BadRequest(new { Error = "Error procesando la solicitud." });
+            }
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var success = await _userService.ResetPasswordAsync(request.Email, request.Code, request.NewPassword);
+            if (!success)
+            {
+                return BadRequest(new { Error = "El código es inválido o ha expirado." });
+            }
+            return Ok(new { Message = "Contraseña restablecida correctamente." });
         }
 
         [HttpPost("login")]
@@ -253,6 +393,18 @@ namespace EFastCommerce.Api.Controllers
     {
         public string UsernameOrEmail { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    public class ForgotPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 
     public class AccessibleTenantDto

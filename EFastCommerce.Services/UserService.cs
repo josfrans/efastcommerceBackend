@@ -85,6 +85,43 @@ namespace EFastCommerce.Services
             return await _userRepository.GetByEmailAsync(email);
         }
 
+        public bool VerifyUserPassword(User user, string password)
+        {
+            return VerifyPassword(password, user.PasswordHash);
+        }
+
+        public async Task<string> GeneratePasswordResetCodeAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null)
+            {
+                throw new Exception("User not found.");
+            }
+
+            var code = new Random().Next(100000, 999999).ToString();
+            user.PasswordResetCode = code;
+            user.PasswordResetCodeExpiration = DateTime.UtcNow.AddMinutes(15);
+            
+            await _userRepository.UpdateAsync(user);
+            return code;
+        }
+
+        public async Task<bool> ResetPasswordAsync(string email, string code, string newPassword)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null || user.PasswordResetCode != code || user.PasswordResetCodeExpiration < DateTime.UtcNow)
+            {
+                return false;
+            }
+
+            user.PasswordHash = HashPassword(newPassword);
+            user.PasswordResetCode = null;
+            user.PasswordResetCodeExpiration = null;
+
+            await _userRepository.UpdateAsync(user);
+            return true;
+        }
+
         #region Password Hashing Helper (PBKDF2)
 
         private static string HashPassword(string password)

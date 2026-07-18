@@ -91,8 +91,9 @@ builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
-        builder.Services.AddScoped<IInvitationService, InvitationService>();
-        builder.Services.AddScoped<IVendorService, VendorService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IVendorService, VendorService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Configure Controllers
 builder.Services.AddControllers()

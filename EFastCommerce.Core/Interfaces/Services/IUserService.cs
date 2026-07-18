@@ -11,5 +11,8 @@ namespace EFastCommerce.Core.Interfaces.Services
         Task<User?> GetUserByIdAsync(Guid id);
         Task<User?> GetUserWithTenantsAsync(Guid id);
         Task<User?> GetUserByEmailAsync(string email);
+        Task<string> GeneratePasswordResetCodeAsync(string email);
+        Task<bool> ResetPasswordAsync(string email, string code, string newPassword);
+        bool VerifyUserPassword(User user, string password);
     }
 }

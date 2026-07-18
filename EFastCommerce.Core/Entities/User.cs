@@ -19,6 +19,10 @@ namespace EFastCommerce.Core.Entities
         public string Role { get; set; } = UserRoles.Client;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Password Reset properties
+        public string? PasswordResetCode { get; set; }
+        public DateTime? PasswordResetCodeExpiration { get; set; }
+
         // Navigation properties
         public ICollection<Tenant> OwnedTenants { get; set; } = new List<Tenant>();
         public ICollection<TenantVendor> TenantVendors { get; set; } = new List<TenantVendor>();
