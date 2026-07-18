@@ -23,6 +23,10 @@ namespace EFastCommerce.Core.Entities
         public string? PasswordResetCode { get; set; }
         public DateTime? PasswordResetCodeExpiration { get; set; }
 
+        // Email Validation properties
+        public bool IsEmailConfirmed { get; set; } = false;
+        public string? EmailConfirmationToken { get; set; }
+
         // Navigation properties
         public ICollection<Tenant> OwnedTenants { get; set; } = new List<Tenant>();
         public ICollection<TenantVendor> TenantVendors { get; set; } = new List<TenantVendor>();

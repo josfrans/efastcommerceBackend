@@ -122,6 +122,36 @@ namespace EFastCommerce.Services
             return true;
         }
 
+        public async Task<string> GenerateEmailValidationTokenAsync(string email)
+        {
+            var user = await _userRepository.GetByEmailAsync(email);
+            if (user == null)
+            {
+                throw new Exception("User not found.");
+            }
+
+            var token = Guid.NewGuid().ToString("N");
+            user.EmailConfirmationToken = token;
+            
+            await _userRepository.UpdateAsync(user);
+            return token;
+        }
+
+        public async Task<Guid?> ConfirmEmailAsync(string token)
+        {
+            var user = await _userRepository.GetUserByEmailConfirmationTokenAsync(token);
+            if (user == null)
+            {
+                return null;
+            }
+
+            user.IsEmailConfirmed = true;
+            user.EmailConfirmationToken = null;
+
+            await _userRepository.UpdateAsync(user);
+            return user.Id;
+        }
+
         #region Password Hashing Helper (PBKDF2)
 
         private static string HashPassword(string password)

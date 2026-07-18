@@ -106,5 +106,47 @@ namespace EFastCommerce.Api.Controllers
 
             return NoContent();
         }
+
+        public class CreateTenantRequest
+        {
+            public string CompanyName { get; set; } = string.Empty;
+            public string CompanySlug { get; set; } = string.Empty;
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Create([FromBody] CreateTenantRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.CompanyName) || string.IsNullOrWhiteSpace(request.CompanySlug))
+            {
+                return BadRequest(new { Error = "InvalidData", Message = "El nombre y la URL de la tienda son obligatorios." });
+            }
+
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { Error = "Unauthorized", Message = "Usuario no autorizado." });
+            }
+
+            var slug = request.CompanySlug.ToLower().Trim();
+            
+            // Check availability
+            var existingTenant = await _tenantService.GetTenantBySlugAsync(slug);
+            if (existingTenant != null)
+            {
+                return BadRequest(new { Error = "SlugInUse", Message = "La URL de la tienda ya está en uso." });
+            }
+
+            var newTenant = new Tenant
+            {
+                Name = request.CompanyName,
+                Slug = slug,
+                IsActive = true, // Born active because user is already authenticated and verified
+                OwnerId = userId
+            };
+
+            var createdTenant = await _tenantService.CreateTenantAsync(newTenant);
+            return Ok(createdTenant);
+        }
     }
 }

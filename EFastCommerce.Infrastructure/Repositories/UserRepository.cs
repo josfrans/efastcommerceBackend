@@ -17,6 +17,11 @@ namespace EFastCommerce.Infrastructure.Repositories
             return await _dbSet.FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower());
         }
 
+        public async Task<User?> GetUserByEmailConfirmationTokenAsync(string token)
+        {
+            return await _dbSet.FirstOrDefaultAsync(u => u.EmailConfirmationToken == token);
+        }
+
         public async Task<User?> GetByUsernameAsync(string username)
         {
             return await _dbSet.FirstOrDefaultAsync(u => u.Username.ToLower() == username.ToLower());

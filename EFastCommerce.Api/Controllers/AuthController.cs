@@ -41,7 +41,13 @@ namespace EFastCommerce.Api.Controllers
 
                 if (existingUser != null)
                 {
-                    // Existing user flow
+                    // If they are registering a new store but the email exists, block it
+                    if (request.Role == UserRoles.VendorAdmin)
+                    {
+                        return BadRequest(new { Error = "UserExistsLoginRequired", Message = "El correo ya está registrado. Por favor, inicia sesión y crea tu nueva tienda desde tu Panel de Control." });
+                    }
+
+                    // Existing user flow for other cases (like Client)
                     if (!_userService.VerifyUserPassword(existingUser, request.Password))
                     {
                         return BadRequest(new { Error = "ExistingUserWrongPassword", Message = "El correo ya está registrado, pero la contraseña es incorrecta." });
@@ -83,11 +89,40 @@ namespace EFastCommerce.Api.Controllers
                     {
                         Name = request.CompanyName,
                         Slug = request.CompanySlug.ToLower().Trim(),
-                        IsActive = true,
+                        IsActive = false,
                         OwnerId = registeredUser.Id
                     };
 
                     await _tenantService.CreateTenantAsync(newTenant);
+                    
+                    var validationToken = await _userService.GenerateEmailValidationTokenAsync(registeredUser.Email);
+                    var body = $@"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; }}
+        .header {{ background-color: #3880ff; color: #ffffff; text-align: center; padding: 30px 20px; }}
+        .content {{ padding: 40px 30px; color: #333333; line-height: 1.6; text-align: center; }}
+        .button {{ display: inline-block; padding: 15px 30px; background-color: #3880ff; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>¡Bienvenido a E-Fast Commerce!</h1>
+        </div>
+        <div class='content'>
+            <h2>¡Hola {registeredUser.Username}!</h2>
+            <p>Estamos muy emocionados de tenerte como vendedor. Para completar tu registro y activar tu nueva tienda <b>{request.CompanyName}</b>, solo necesitas confirmar tu correo electrónico.</p>
+            <a href='http://localhost:8100/verify-email?token={validationToken}' class='button'>Confirmar y Activar mi tienda</a>
+        </div>
+    </div>
+</body>
+</html>";
+                    await _emailService.SendEmailAsync(registeredUser.Email, "¡Bienvenido a E-Fast Commerce! Verifica tu correo", body);
                 }
                 else if (request.Role == UserRoles.Client)
                 {
@@ -232,6 +267,28 @@ namespace EFastCommerce.Api.Controllers
             return Ok(new { Message = "Contraseña restablecida correctamente." });
         }
 
+        [HttpGet("verify-email")]
+        public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+        {
+            var userId = await _userService.ConfirmEmailAsync(token);
+            if (userId == null)
+            {
+                return BadRequest(new { Error = "El enlace de verificación es inválido o ya ha sido utilizado." });
+            }
+
+            var user = await _userService.GetUserWithTenantsAsync(userId.Value);
+            if (user != null)
+            {
+                foreach (var tenant in user.OwnedTenants)
+                {
+                    tenant.IsActive = true;
+                    await _tenantService.UpdateTenantAsync(tenant);
+                }
+            }
+
+            return Ok(new { Message = "Correo verificado y tienda activada correctamente." });
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -239,6 +296,39 @@ namespace EFastCommerce.Api.Controllers
             if (authenticatedUser == null)
             {
                 return Unauthorized(new { Error = "Invalid username/email or password." });
+            }
+
+            if (!authenticatedUser.IsEmailConfirmed)
+            {
+                var validationToken = await _userService.GenerateEmailValidationTokenAsync(authenticatedUser.Email);
+                var body = $@"
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+    <meta charset='UTF-8'>
+    <style>
+        body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; }}
+        .header {{ background-color: #3880ff; color: #ffffff; text-align: center; padding: 30px 20px; }}
+        .content {{ padding: 40px 30px; color: #333333; line-height: 1.6; text-align: center; }}
+        .button {{ display: inline-block; padding: 15px 30px; background-color: #3880ff; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>Verifica tu cuenta en E-Fast Commerce</h1>
+        </div>
+        <div class='content'>
+            <h2>¡Hola {authenticatedUser.Username}!</h2>
+            <p>Hemos notado que intentaste iniciar sesión pero tu correo aún no está verificado. Para continuar, por favor confírmalo haciendo clic en el botón de abajo.</p>
+            <a href='http://localhost:8100/verify-email?token={validationToken}' class='button'>Activar mi tienda</a>
+        </div>
+    </div>
+</body>
+</html>";
+                await _emailService.SendEmailAsync(authenticatedUser.Email, "Verifica tu correo electrónico - E-Fast Commerce", body);
+                return BadRequest(new { Error = "EmailNotConfirmed", Message = "Debes validar tu correo para ingresar. Hemos enviado un nuevo enlace de activación a tu bandeja de entrada." });
             }
 
             var user = await _userService.GetUserWithTenantsAsync(authenticatedUser.Id);

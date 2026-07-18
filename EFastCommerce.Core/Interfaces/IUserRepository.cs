@@ -6,6 +6,8 @@ namespace EFastCommerce.Core.Interfaces
     public interface IUserRepository : IRepository<User>
     {
         Task<User?> GetByEmailAsync(string email);
+        Task<User?> GetUserByEmailConfirmationTokenAsync(string token);
+        Task AddAsync(User user);
         Task<User?> GetByUsernameAsync(string username);
         Task<User?> GetUserWithTenantsAsync(System.Guid id);
     }
